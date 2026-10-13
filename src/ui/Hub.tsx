@@ -10,7 +10,7 @@ import type { Career, CarStat, DriverStat, QualiApproach, ResearchLength } from 
 import { CAR_STATS, DRIVER_STATS } from "../engine/types";
 import { runQualifying } from "../engine/weekend";
 import type { Act } from "./App";
-import { Delta, fmtM, freeSlots, StatBar, TeamSwatch } from "./common";
+import { Delta, Fold, fmtM, freeSlots, NextAction, Section, StatBar, Stepper, TeamSwatch } from "./common";
 
 type Tab = "race" | "team" | "rnd" | "standings" | "news";
 
@@ -54,9 +54,9 @@ export function Hub({ c, act, onQuit }: { c: Career; act: Act; onQuit: () => voi
 }
 
 const APPROACHES: { id: QualiApproach; label: string; hint: string }[] = [
-  { id: "safe", label: "Safe", hint: "Slower, almost no mistakes" },
-  { id: "normal", label: "Normal", hint: "Balanced" },
-  { id: "aggressive", label: "Aggressive", hint: "Faster, error risk depends on Consistency" },
+  { id: "safe", label: "Safe", hint: "Slower lap, almost no risk of mistakes" },
+  { id: "normal", label: "Normal", hint: "Balanced pace and risk" },
+  { id: "aggressive", label: "Aggressive", hint: "Faster lap, but mistakes are more likely (depends on Consistency)" },
 ];
 
 export function Forecast({ c }: { c: Career }) {
@@ -64,10 +64,10 @@ export function Forecast({ c }: { c: Career }) {
   const p = Math.round(w.rainForecast * 100);
   const icon = p >= 50 ? "🌧" : p >= 25 ? "🌦" : p >= 10 ? "⛅" : "☀️";
   return (
-    <div className="row between">
+    <div className="status-line">
       <span className="muted">Race forecast</span>
       <span className="num">
-        {icon} {p}% rain{p >= 15 ? ` · likely laps ${w.rainWindow[0]}–${w.rainWindow[1]}` : ""}
+        {icon} {p}% rain{p >= 15 ? ` · laps ${w.rainWindow[0]}–${w.rainWindow[1]}` : ""}
       </span>
     </div>
   );
@@ -77,66 +77,86 @@ function NextRace({ c, act, goRnd }: { c: Career; act: Act; goRnd: () => void })
   const track = TRACKS[c.round];
   const w = c.weekend!;
   const [err, setErr] = useState<string | null>(null);
+  const [approach, setApproach] = useState<QualiApproach>("normal");
   const ranking = c.teamOrder
     .map((id) => ({ id, r: carTrackRating(c.teams[id].stats, track) }))
     .sort((a, b) => b.r - a.r);
   const myRank = ranking.findIndex((x) => x.id === c.playerTeamId) + 1;
   const penalty = w.gridPenalties[c.playerDriverId];
   const free = freeSlots(c, SLOTS);
+  const running = SLOTS.car + SLOTS.driver - free;
   return (
-    <div className="stack">
-      {free > 0 && (
-        <button className="full panel rnd-panel" onClick={goRnd}>
-          <b>🔬 {free} R&D slot{free > 1 ? "s" : ""} free</b>
-          <div className="small muted">Start a project before the race. Progress happens after every race.</div>
-        </button>
-      )}
+    <div className="screen">
+      <Stepper current="Prepare" />
+
       <div className="panel">
-        <div className="muted small">Round {c.round + 1} · {track.country}</div>
-        <h2>{track.name}</h2>
-        <div className="row" style={{ flexWrap: "wrap", marginTop: 8 }}>
+        <div className="muted small">Round {c.round + 1} of {TRACKS.length} · {track.country}</div>
+        <h2 style={{ marginTop: 2 }}>{track.name}</h2>
+        <div className="chips" style={{ marginTop: 10 }}>
           {track.traits.map((t) => <span key={t} className="pill">{t}</span>)}
+          <span className="pill">Overtaking: {overtakingLabel(track.overtaking)}</span>
+          <span className="pill">Tyre wear: {degLabel(track.deg)}</span>
         </div>
-        <table className="t" style={{ marginTop: 10 }}>
-          <tbody>
-            <tr><td className="muted">Laps</td><td className="r num">{track.laps}</td></tr>
-            <tr><td className="muted">Overtaking</td><td className="r">{overtakingLabel(track.overtaking)}</td></tr>
-            <tr><td className="muted">Tyre degradation</td><td className="r">{degLabel(track.deg)}</td></tr>
-            <tr><td className="muted">Safety Car likelihood</td><td className="r num">{Math.round(track.sc * 100)}%</td></tr>
-            <tr><td className="muted">Your car here</td><td className="r num">#{myRank} of {ranking.length}</td></tr>
-          </tbody>
-        </table>
-        <div style={{ marginTop: 8 }}><Forecast c={c} /></div>
-        {penalty ? <div className="pill bad" style={{ marginTop: 8 }}>Grid penalty: −{penalty} places</div> : null}
-        {w.qualiWet ? <div className="pill warn" style={{ marginTop: 8 }}>Wet qualifying expected</div> : null}
+        <div className="stack" style={{ marginTop: 12 }}>
+          <Forecast c={c} />
+          <div className="status-line"><span className="muted">Your car at this track</span><b className="num">#{myRank} of {ranking.length}</b></div>
+          <div className="status-line"><span className="muted">Laps · Safety Car chance</span><span className="num">{track.laps} · {Math.round(track.sc * 100)}%</span></div>
+        </div>
+        {(penalty || w.qualiWet) && (
+          <div className="chips" style={{ marginTop: 10 }}>
+            {penalty ? <span className="pill bad">Grid penalty −{penalty}</span> : null}
+            {w.qualiWet ? <span className="pill warn">Wet qualifying expected</span> : null}
+          </div>
+        )}
       </div>
 
-      <h3>Weekend prep <span className="muted small">({w.boosts.length}/{MAX_BOOSTS}, personal money)</span></h3>
-      <div className="grid2">
-        {BOOSTS.map((b) => {
-          const on = w.boosts.includes(b.id);
-          return (
-            <button
-              key={b.id}
-              className={`small ${on ? "selected" : ""}`}
-              disabled={!on && (w.boosts.length >= MAX_BOOSTS || c.wallet < b.cost)}
-              onClick={() => { if (!on) act((x) => { setErr(buyBoost(x, b.id)); }); }}
-            >
-              <div className="row between"><b>{b.label}</b>{on && "✓"}</div>
-              <div className="muted">+{b.amount} {DRIVER_STAT_LABEL[b.stat]} · {fmtM(b.cost)}</div>
+      <Section step={1} title="Prepare" optional hint="Research and boosts help in qualifying and the race.">
+        <div className={`panel status-line ${free > 0 ? "rnd-panel" : ""}`}>
+          <div>
+            <b>🔬 R&D</b>
+            <div className="small muted">{running} of {SLOTS.car + SLOTS.driver} projects running{free > 0 ? ` · ${free} slot${free > 1 ? "s" : ""} free` : ""}</div>
+          </div>
+          <button className="small" onClick={goRnd}>{free > 0 ? "Start project" : "View"}</button>
+        </div>
+        <Fold summary={<span><b>🎯 Weekend boosts</b> <span className="muted small">· {w.boosts.length}/{MAX_BOOSTS} booked · 👤 {fmtM(c.wallet)}</span></span>}>
+          <div className="small muted" style={{ marginBottom: 8 }}>Small stat boosts for this weekend only, paid from your personal money.</div>
+          <div className="grid2">
+            {BOOSTS.map((b) => {
+              const on = w.boosts.includes(b.id);
+              return (
+                <button
+                  key={b.id}
+                  className={`small ${on ? "selected" : ""}`}
+                  disabled={!on && (w.boosts.length >= MAX_BOOSTS || c.wallet < b.cost)}
+                  onClick={() => { if (!on) act((x) => { setErr(buyBoost(x, b.id)); }); }}
+                >
+                  <div className="row between"><b>{b.label}</b>{on && "✓"}</div>
+                  <div className="muted">+{b.amount} {DRIVER_STAT_LABEL[b.stat]} · {fmtM(b.cost)}</div>
+                </button>
+              );
+            })}
+          </div>
+          {err && <div className="pill bad" style={{ marginTop: 8 }}>{err}</div>}
+        </Fold>
+      </Section>
+
+      <Section step={2} title="Qualifying approach" hint="Decides how hard you push for grid position.">
+        <div className="choice-list">
+          {APPROACHES.map((a) => (
+            <button key={a.id} className={`choice ${approach === a.id ? "selected" : ""}`} onClick={() => setApproach(a.id)}>
+              <span className="radio" />
+              <span>
+                <b>{a.label}</b>
+                <div className="muted small">{a.hint}</div>
+              </span>
             </button>
-          );
-        })}
-      </div>
-      {err && <div className="pill bad">{err}</div>}
+          ))}
+        </div>
+      </Section>
 
-      <h3>Qualifying approach</h3>
-      {APPROACHES.map((a) => (
-        <button key={a.id} className="full" onClick={() => act((x) => { runQualifying(x, a.id); })}>
-          <b>{a.label}</b>
-          <div className="muted small">{a.hint}</div>
-        </button>
-      ))}
+      <NextAction>
+        <button className="primary" onClick={() => act((x) => { runQualifying(x, approach); })}>Go to qualifying ›</button>
+      </NextAction>
     </div>
   );
 }
@@ -152,7 +172,8 @@ function TeamTab({ c, act }: { c: Career; act: Act }) {
   const ct = c.contract;
   const own = c.playerTeamId === c.ownTeamId;
   return (
-    <div className="stack">
+    <div className="screen">
+      <Section title="Your driver">
       <div className="panel">
         <div className="row between">
           <div>
@@ -168,7 +189,9 @@ function TeamTab({ c, act }: { c: Career; act: Act }) {
           {DRIVER_STATS.map((k) => <StatBar key={k} label={`${DRIVER_STAT_LABEL[k]} ${Math.round(DRIVER_WEIGHTS[k] * 100)}%`} value={me.stats[k]} start={drvStart[k]} />)}
         </div>
       </div>
+      </Section>
 
+      <Section title="Contract & money">
       <div className="panel">
         <div className="row between">
           <b>Contract</b>
@@ -199,7 +222,9 @@ function TeamTab({ c, act }: { c: Career; act: Act }) {
           )
         )}
       </div>
+      </Section>
 
+      <Section title="Your car">
       <div className="panel">
         <div className="row between">
           <div>
@@ -216,7 +241,9 @@ function TeamTab({ c, act }: { c: Career; act: Act }) {
         </div>
         <div className="muted small" style={{ marginTop: 6 }}>Green = gained this season.</div>
       </div>
+      </Section>
       {mate && (
+        <Section title="Teammate">
         <div className="panel row between">
           <div>
             <div className="muted small">Teammate</div>
@@ -225,6 +252,7 @@ function TeamTab({ c, act }: { c: Career; act: Act }) {
           </div>
           <div className="ovr num">{Math.round(driverOverall(mate.stats))}</div>
         </div>
+        </Section>
       )}
     </div>
   );
@@ -243,15 +271,18 @@ function Research({ c, act }: { c: Career; act: Act }) {
   const statsFor = (t: "car" | "driver") => (t === "car" ? CAR_STATS : DRIVER_STATS) as readonly string[];
   const labelFor = (t: "car" | "driver", k: string) => (t === "car" ? CAR_STAT_LABEL[k as CarStat] : DRIVER_STAT_LABEL[k as DriverStat]);
 
+  const group = (target: "car" | "driver") => slots.filter((s) => s.target === target);
   return (
-    <div className="stack">
+    <div className="screen">
       <div className="muted small">
-        Car research is paid by the team (🏢), driver training by you (👤). Longer projects pay more per race, but lock the slot
-        and carry a small risk. Costs rise steeply as a stat gets higher.
+        Longer projects pay more per race, but lock the slot and carry a small risk. Costs rise steeply as a stat gets higher.
+        Progress is applied after each race.
       </div>
-      {slots.map(({ target, p }, i) => (
+      {(["car", "driver"] as const).map((g) => (
+      <Section key={g} title={g === "car" ? "🔧 Car research" : "🏋️ Driver training"}
+        hint={g === "car" ? `Paid by the team · 🏢 ${fmtM(c.teams[c.playerTeamId].budget)}` : `Paid from your personal money · 👤 ${fmtM(c.wallet)}`}>
+      {group(g).map(({ target, p }, i) => (
         <div key={i} className="panel">
-          <div className="muted small">{target === "car" ? "🔧 Car research slot · 🏢" : "🏋️ Driver training slot · 👤"}</div>
           {p ? (
             <>
               <div className="row between">
@@ -263,15 +294,18 @@ function Research({ c, act }: { c: Career; act: Act }) {
               </div>
             </>
           ) : (
-            <button className="small" style={{ marginTop: 6 }} onClick={() => { setPicking(target); setStat(null); setErr(null); }}>
-              + Start project
-            </button>
+            <div className="status-line">
+              <span className="muted">Empty slot</span>
+              <button className="small boxbtn" onClick={() => { setPicking(target); setStat(null); setErr(null); }}>+ Start project</button>
+            </div>
           )}
         </div>
       ))}
+      </Section>
+      ))}
 
       {picking && (
-        <div className="modal-bg" onClick={() => setPicking(null)}>
+        <div className="modal-bg" data-dismiss onClick={() => setPicking(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="row between">
               <h2>{picking === "car" ? "Car research" : "Driver training"}</h2>
@@ -372,7 +406,7 @@ function Standings({ c }: { c: Career }) {
 
 function News({ c }: { c: Career }) {
   return (
-    <div className="stack">
+    <div className="screen">
       {c.offseason.length > 0 && (
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>Off-season</h3>

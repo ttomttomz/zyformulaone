@@ -4,7 +4,7 @@ import { PROFILES } from "../engine/data/drivers";
 import { TEAM_COLORS } from "../engine/data/teams";
 import { DIFFICULTY, driverOverall } from "../engine/ratings";
 import type { Career, Difficulty, Profile } from "../engine/types";
-import { Logo } from "./common";
+import { Logo, NextAction, Section } from "./common";
 
 export function NewCareer({ onCreate, onCancel }: { onCreate: (c: Career) => void; onCancel: () => void }) {
   const [name, setName] = useState("");
@@ -17,13 +17,13 @@ export function NewCareer({ onCreate, onCancel }: { onCreate: (c: Career) => voi
   const ok = name.trim().length >= 2 && teamName.trim().length >= 2;
 
   return (
-    <div className="stack">
+    <div className="screen no-tabs">
       <div className="topbar">
         <Logo size={22} />
         <button className="small ghost" onClick={onCancel}>Cancel</button>
       </div>
 
-      <h3>Your driver</h3>
+      <Section step={1} title="Your driver" hint="Name and starting profile.">
       <input type="text" placeholder="Driver name (e.g. Alex Moreau)" value={name} onChange={(e) => setName(e.target.value)} maxLength={28} />
       {(Object.keys(PROFILES) as Profile[]).map((p) => {
         const P = PROFILES[p];
@@ -39,7 +39,9 @@ export function NewCareer({ onCreate, onCancel }: { onCreate: (c: Career) => voi
         );
       })}
 
-      <h3>Difficulty</h3>
+      </Section>
+
+      <Section step={2} title="Difficulty">
       <div className="grid3">
         {(Object.keys(DIFFICULTY) as Difficulty[]).map((d) => (
           <button key={d} className={`center ${difficulty === d ? "selected" : ""}`} onClick={() => setDifficulty(d)}>
@@ -48,8 +50,9 @@ export function NewCareer({ onCreate, onCancel }: { onCreate: (c: Career) => voi
         ))}
       </div>
       <div className="muted small">Scales AI development speed, your income and race chaos.</div>
+      </Section>
 
-      <h3>Your team</h3>
+      <Section step={3} title="Your team" hint="You own it. It starts at the back of the grid.">
       <input type="text" placeholder="Team name (e.g. Zy Racing)" value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={22} />
       <div className="small muted">Primary colour</div>
       <div className="row" style={{ flexWrap: "wrap" }}>
@@ -64,14 +67,17 @@ export function NewCareer({ onCreate, onCancel }: { onCreate: (c: Career) => voi
         ))}
       </div>
       <div className="panel row" style={{ background: `linear-gradient(110deg, ${color} 0 60%, ${color2} 60%)`, height: 44 }} />
+      </Section>
 
+      <NextAction above={ok ? undefined : "Enter a driver name and a team name"}>
       <button
         className="primary"
         disabled={!ok}
         onClick={() => onCreate(newCareer({ driverName: name, profile, difficulty, teamName, color, color2 }))}
       >
-        Start career
+        Start career ›
       </button>
+      </NextAction>
     </div>
   );
 }

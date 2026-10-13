@@ -3,7 +3,7 @@ import { resolveSeasonEnd, retirePlayer } from "../engine/career";
 import { carOverall, driverOverall } from "../engine/ratings";
 import type { Career, Offer } from "../engine/types";
 import type { Act } from "./App";
-import { fmtM, TeamSwatch } from "./common";
+import { Fold, fmtM, NextAction, Section, TeamSwatch } from "./common";
 
 type Choice = { kind: "stay" } | { kind: "own" } | { kind: "offer"; offer: Offer } | { kind: "retire" };
 
@@ -23,20 +23,31 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
   for (const o of rep.offers) byTeam.set(o.teamId, [...(byTeam.get(o.teamId) ?? []), o]);
   const isSel = (o: Offer) => choice?.kind === "offer" && choice.offer === o;
 
+  const teamPos = ts.findIndex(([id]) => id === c.playerTeamId) + 1;
+  const choiceText = !choice ? "Pick one option above" : choice.kind === "stay" ? `Stay with ${cur.name}` : choice.kind === "own" ? `Return to ${own.name}`
+    : choice.kind === "retire" ? "Retire from Formula One" : `Sign with ${c.teams[choice.offer.teamId].name} (${choice.offer.style})`;
+
   return (
-    <div className="stack">
-      <div className="center" style={{ padding: "16px 0 4px" }}>
-        <div className="muted small">{c.season} season review</div>
+    <div className="screen no-tabs">
+      <div className="center" style={{ padding: "12px 0 0" }}>
+        <div className="kicker muted small">{c.season} season review</div>
         <h2 style={{ fontSize: 26, marginTop: 4 }}>{myPos === 1 ? "🏆 WORLD CHAMPION!" : `You finished P${myPos}`}</h2>
-        <div className="muted">{myPts} points · constructors prize {fmtM(rep.prize)} · 👤 {fmtM(c.wallet)}</div>
       </div>
 
+      <div className="summary-row">
+        <div><div className="v num">{myPts}</div><div className="k">Points</div></div>
+        <div><div className="v num">P{teamPos}</div><div className="k">Team</div></div>
+        <div><div className="v num good-text">+{fmtM(rep.prize)}</div><div className="k">🏢 Prize</div></div>
+        <div><div className="v num">{fmtM(c.wallet)}</div><div className="k">👤 You</div></div>
+      </div>
+
+      <Section title="The season">
       <div className="panel">
         <div className="row between"><span className="muted">Drivers' champion</span><b>{champ.name}</b></div>
         <div className="row between"><span className="muted">Constructors' champion</span><b>{c.teams[ts[0][0]].name}</b></div>
       </div>
 
-      <h3>Constructors</h3>
+      <Fold summary={<span className="small">Constructors' standings</span>}>
       <table className="t">
         <tbody>
           {ts.map(([id, pts], i) => (
@@ -48,6 +59,7 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
           ))}
         </tbody>
       </table>
+      </Fold>
 
       {(rep.retirements.length > 0 || rep.regulation) && (
         <div className="panel small">
@@ -56,8 +68,9 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
         </div>
       )}
 
-      <h3>Your future</h3>
-      <div className="muted small">Market rating: {rep.marketScore} (your rating + form this season)</div>
+      </Section>
+
+      <Section step={1} title="Your future" hint={`Choose one option. Market rating ${rep.marketScore} (your rating + this season's form).`}>
 
       {rep.canStay && (
         <button className={`full ${choice?.kind === "stay" ? "selected" : ""}`} onClick={() => setChoice({ kind: "stay" })}>
@@ -103,6 +116,8 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
       {rep.offers.length === 0 && <div className="muted small">No offers this year. Results and rating drive interest from other teams.</div>}
       {!atOwn && byTeam.size > 0 && <div className="muted small">Joining a team means you run its R&D and budget. Unfinished car research stays with your old team.</div>}
 
+      </Section>
+
       {rep.canRetire && (
         <button className={`full ${choice?.kind === "retire" ? "selected" : ""}`} onClick={() => setChoice({ kind: "retire" })}>
           <b>Retire from Formula One</b>
@@ -110,6 +125,7 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
         </button>
       )}
 
+      <NextAction above={choiceText}>
       <button
         className="primary"
         disabled={!choice}
@@ -123,8 +139,9 @@ export function SeasonEnd({ c, act }: { c: Career; act: Act }) {
           })
         }
       >
-        Confirm
+        Confirm ›
       </button>
+      </NextAction>
     </div>
   );
 }

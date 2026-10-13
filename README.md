@@ -11,6 +11,22 @@ npm test           # engine tests
 npm run balance -- 5 superstar normal   # headless: auto-play N seasons and print balance numbers
 ```
 
+## Android app
+
+The same web build is wrapped with Capacitor (`android/`). App ID: `com.ttomttomz.zyformulaone`.
+
+```bash
+npm run android:apk   # builds ZyFormulaOne.apk in the project root (debug-signed)
+```
+
+One-time setup on this Mac (already done): `brew install openjdk@21 && brew install --cask android-commandlinetools`, then the SDK
+packages `platform-tools`, `platforms;android-36` and `build-tools;36.0.0` via `sdkmanager`. `android/local.properties` points at the SDK.
+
+To install: copy `ZyFormulaOne.apk` to the phone, open it and allow "install unknown apps" for your file manager. Saves are kept in
+app storage and survive updates as long as the same APK signing key is used (the debug key on this Mac).
+
+Icon and splash are rendered from `resources/logo.svg`.
+
 ## Layout
 
 - `src/engine/`: pure TypeScript game engine, no UI and no browser APIs. It is deterministic for a given seed, and the Android app will reuse it as-is.

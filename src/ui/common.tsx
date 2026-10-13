@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import type { Career, Compound } from "../engine/types";
 
 export const fmtM = (n: number) => `$${Math.abs(n) < 1 ? n.toFixed(2) : n.toFixed(1)}M`;
@@ -43,4 +44,66 @@ export const teamOf = (c: Career, driverId: string) => {
 
 export function Logo({ size = 34 }: { size?: number }) {
   return <div className="logo" style={{ fontSize: size }}>Zy<span>Formula</span>One</div>;
+}
+
+// ---------- layout building blocks ----------
+
+const STEPS = ["Prepare", "Qualify", "Strategy", "Race", "Results"] as const;
+export type WeekendStep = (typeof STEPS)[number];
+
+// Where the player is in the race weekend.
+export function Stepper({ current }: { current: WeekendStep }) {
+  const idx = STEPS.indexOf(current);
+  return (
+    <ol className="stepper">
+      {STEPS.map((s, i) => (
+        <li key={s} className={i < idx ? "done" : i === idx ? "now" : ""}>
+          <span className="dot">{i < idx ? "✓" : i + 1}</span>
+          <span className="lbl">{s}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// A titled block of the screen. `step` shows a number badge; `optional` softens it.
+export function Section({ step, title, hint, optional, children }: {
+  step?: number; title: string; hint?: string; optional?: boolean; children: ReactNode;
+}) {
+  return (
+    <section className={`section ${optional ? "optional" : ""}`}>
+      <header>
+        {step !== undefined && <span className="step-num">{step}</span>}
+        <div>
+          <h3>{title}{optional && <span className="opt-tag">optional</span>}</h3>
+          {hint && <div className="hint">{hint}</div>}
+        </div>
+      </header>
+      {children}
+    </section>
+  );
+}
+
+// Folded content: summary line always visible, details on tap.
+export function Fold({ summary, children, open: initial = false }: { summary: ReactNode; children: ReactNode; open?: boolean }) {
+  const [open, setOpen] = useState(initial);
+  return (
+    <div className={`fold ${open ? "open" : ""}`}>
+      <button className="fold-head" onClick={() => setOpen((o) => !o)}>
+        <span className="grow">{summary}</span>
+        <span className="chev">{open ? "▴" : "▾"}</span>
+      </button>
+      {open && <div className="fold-body">{children}</div>}
+    </div>
+  );
+}
+
+// The one main action of a screen, pinned to the bottom.
+export function NextAction({ children, above }: { children: ReactNode; above?: ReactNode }) {
+  return (
+    <div className="next-action">
+      {above && <div className="next-above">{above}</div>}
+      {children}
+    </div>
+  );
 }

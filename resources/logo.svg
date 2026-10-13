@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- ZyFormulaOne mark: italic red Z with speed lines and a chequered strip.
+       Drawn inside the 66dp adaptive-icon safe zone of a 108dp canvas. -->
+  <g transform="translate(54 54) skewX(-14) translate(-54 -54)">
+    <path d="M36 34 H78 V43 L51 63 H78 V72 H36 V63 L63 43 H36 Z" fill="#E10600"/>
+    <g stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round">
+      <line x1="20" y1="45" x2="31" y2="45"/>
+      <line x1="16" y1="53" x2="30" y2="53"/>
+      <line x1="22" y1="61" x2="31" y2="61"/>
+    </g>
+    <g fill="#FFFFFF">
+      <rect x="36" y="76" width="3.5" height="3.5"/><rect x="43" y="76" width="3.5" height="3.5"/><rect x="50" y="76" width="3.5" height="3.5"/>
+      <rect x="57" y="76" width="3.5" height="3.5"/><rect x="64" y="76" width="3.5" height="3.5"/><rect x="71" y="76" width="3.5" height="3.5"/>
+      <rect x="39.5" y="79.5" width="3.5" height="3.5"/><rect x="46.5" y="79.5" width="3.5" height="3.5"/><rect x="53.5" y="79.5" width="3.5" height="3.5"/>
+      <rect x="60.5" y="79.5" width="3.5" height="3.5"/><rect x="67.5" y="79.5" width="3.5" height="3.5"/><rect x="74.5" y="79.5" width="3.5" height="3.5"/>
+    </g>
+  </g>
+</svg>

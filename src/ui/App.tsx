@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Career } from "../engine/types";
 import { Hub } from "./Hub";
+import { onBack } from "./native";
 import { NewCareer } from "./NewCareer";
 import { Race } from "./Race";
 import { RaceResultScreen } from "./RaceResult";
@@ -34,6 +35,15 @@ export function App() {
   );
 
   const quit = () => { setCareer(null); setSlot(null); setCreating(false); };
+
+  // Android back: from the career hub or new-career form, go to the menu; elsewhere in a
+  // weekend do nothing (no accidental exits mid-race); on the menu, minimise the app.
+  const phase = career?.phase;
+  useEffect(() => {
+    if (creating || phase === "hub" || phase === "retired") onBack(() => { quit(); return true; });
+    else if (phase) onBack(() => true);
+    else onBack(null);
+  }, [creating, phase]);
 
   if (creating && slot !== null) {
     return (
